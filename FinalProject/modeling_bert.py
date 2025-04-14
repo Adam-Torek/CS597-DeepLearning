@@ -55,7 +55,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from transformers.configuration_bert import BertConfig
+from transformers import BertConfig
 
 
 logger = logging.get_logger(__name__)
@@ -233,9 +233,17 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        self.is_latent = config.is_latent
+        if self.is_latent:
+            self.k_down_proj = nn.Linear(config.hidden_size, config.latent_size)
+            self.v_down_proj = nn.Linear(config.hidden_size, config.latent_size)
+            self.k_up_proj = nn.Linear(config.latent_size, self.all_head_size)
+            self.v_up_proj = nn.Linear(config.latent_size, self.all_head_size)
+        else: 
+            self.query = nn.Linear(config.hidden_size, self.all_head_size)
+            self.key = nn.Linear(config.hidden_size, self.all_head_size)
+            self.value = nn.Linear(config.hidden_size, self.all_head_size)
+
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -269,23 +277,42 @@ class BertSelfAttention(nn.Module):
         # such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
 
-        if is_cross_attention and past_key_value is not None:
-            # reuse k,v, cross_attentions
-            key_layer = past_key_value[0]
-            value_layer = past_key_value[1]
-            attention_mask = encoder_attention_mask
-        elif is_cross_attention:
-            key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
-            value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
-            attention_mask = encoder_attention_mask
-        elif past_key_value is not None:
-            key_layer = self.transpose_for_scores(self.key(hidden_states))
-            value_layer = self.transpose_for_scores(self.value(hidden_states))
-            key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
-            value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+        if self.is_latent:
+            if is_cross_attention and past_key_value is not None:
+                key_layer = self.k_up_proj(past_key_value[0])
+                value_layer = self.v_up_proj(past_key_value[1])
+                attention_mask = encoder_attention_mask
+            else:
+                compressed_keys = self.k_down_proj(encoder_hidden_states)
+                compressed_values = self.v_down_proj(encoder_hidden_states)
+                uncompressed_keys = self.k_up_proj(compressed_keys)
+                uncompressed_values = self.v_up_proj(compressed_values)
+                if is_cross_attention:
+                    key_layer = self.transpose_for_scores(uncompressed_keys)
+                    value_layer = self.transpose_for_scores(uncompressed_values)
+                    attention_mask = encoder_attention_mask
+                elif past_key_value is not None:
+                    key_layer = self.transpose_for_scores(uncompressed_keys)
+                    value_layer = self.transpose_for_scores(uncompressed_values)
+                    
         else:
-            key_layer = self.transpose_for_scores(self.key(hidden_states))
-            value_layer = self.transpose_for_scores(self.value(hidden_states))
+            if is_cross_attention and past_key_value is not None:
+                # reuse k,v, cross_attentions
+                key_layer = past_key_value[0]
+                value_layer = past_key_value[1]
+                attention_mask = encoder_attention_mask
+            elif is_cross_attention:
+                key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
+                value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
+                attention_mask = encoder_attention_mask
+            elif past_key_value is not None:
+                key_layer = self.transpose_for_scores(self.key(hidden_states))
+                value_layer = self.transpose_for_scores(self.value(hidden_states))
+                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
+                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+            else:
+                key_layer = self.transpose_for_scores(self.key(hidden_states))
+                value_layer = self.transpose_for_scores(self.value(hidden_states))
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
 

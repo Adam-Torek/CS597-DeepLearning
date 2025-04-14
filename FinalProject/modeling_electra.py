@@ -46,7 +46,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from transformers.configuration_electra import ElectraConfig
+from transformers import ElectraConfig
 
 
 logger = logging.get_logger(__name__)
@@ -253,6 +253,8 @@ class ElectraSelfAttention(nn.Module):
         # such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
 
+        #TODO: Figure out how to insert key and value down-projected matrices into the cache
+        # rather than the full key and value matrices
         if is_cross_attention and past_key_value is not None:
             # reuse k,v, cross_attentions
             key_layer = past_key_value[0]
