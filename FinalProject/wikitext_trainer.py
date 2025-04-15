@@ -107,7 +107,8 @@ def main():
 
     parser.add_argument("--latent_dimension",
                     type=int,
-                    required=True,
+                    required=False,
+                    default=0,
                     help="Size of the latent dimension the key and value attention matrices" \
                     " will be projected down to in your model of choice.")
 
@@ -161,6 +162,8 @@ def main():
     dataset_subname = training_arguments.dataset_subname
     batch_size = training_arguments.batch_size
 
+    latent_size = training_arguments.latent_dimension if training_arguments.latent_dimension != 0 else None
+
     num_epochs = training_arguments.num_epochs
     max_training_steps = training_arguments.max_training_steps
     num_devices = training_arguments.num_devices
@@ -191,11 +194,12 @@ def main():
 
     transformer_encoder_model = None
 
+    
     if model_name == "bert":
-        config = BertMLAConfig()
+        config = BertMLAConfig(latent_size=latent_size)
         transformer_encoder_model = BertForMaskedLM(config)
     elif model_name == "electra":
-        config = ElectraMLAConfig()
+        config = ElectraMLAConfig(latent_size=latent_size)
         transformer_encoder_model = ElectraForMaskedLM(config)
 
     transformer_encoder_lightning = LightningWrapper(transformer_encoder_model, learning_rate)

@@ -11,13 +11,13 @@
             "request": "launch",
             "program": "FinalProject/wikitext_trainer.py",
             "console": "integratedTerminal",
-            "args": ["--model_name","bert",
+            "args": ["--model_name","electra",
                      "--dataset_name","Salesforce/wikitext",
                      "--dataset_subname","wikitext-103-v1",
-                     "--model_save_name","ajtorek/bert-wikitext-normal",
+                     "--model_save_name","ajtorek/electra-wikitext-normal",
                      "--learning_rate","1e-4",
                      "--batch_size","32",
-                     "--latent_dimension","100"
+                     "--accelerator","cpu",
                     ]
         }
     ]

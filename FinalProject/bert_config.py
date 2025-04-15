@@ -78,6 +78,9 @@ class BertMLAConfig(PretrainedConfig):
             relevant if `config.is_decoder=True`.
         classifier_dropout (`float`, *optional*):
             The dropout ratio for the classification head.
+        latent_size (`int`, *optional*):
+            Size of the latent projection that will be used for the key and value attention matrices. 
+            Note: Cross attention cannot be used if the latent size dimension is set. 
 
     Examples:
 
@@ -114,6 +117,7 @@ class BertMLAConfig(PretrainedConfig):
         position_embedding_type="absolute",
         use_cache=True,
         classifier_dropout=None,
+        latent_size=None,
         **kwargs,
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -133,6 +137,7 @@ class BertMLAConfig(PretrainedConfig):
         self.position_embedding_type = position_embedding_type
         self.use_cache = use_cache
         self.classifier_dropout = classifier_dropout
+        self.latent_size = latent_size
 
 
 class BertOnnxConfig(OnnxConfig):

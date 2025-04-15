@@ -233,17 +233,18 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-        self.is_latent = config.is_latent
+        self.is_latent = config.latent_size is not None
         if self.is_latent:
             self.k_down_proj = nn.Linear(config.hidden_size, config.latent_size)
             self.v_down_proj = nn.Linear(config.hidden_size, config.latent_size)
             self.k_up_proj = nn.Linear(config.latent_size, self.all_head_size)
             self.v_up_proj = nn.Linear(config.latent_size, self.all_head_size)
         else: 
-            self.query = nn.Linear(config.hidden_size, self.all_head_size)
+           
             self.key = nn.Linear(config.hidden_size, self.all_head_size)
             self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
+        self.query = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -267,7 +268,7 @@ class BertSelfAttention(nn.Module):
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.FloatTensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        past_key_value: Optional[List[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
         mixed_query_layer = self.query(hidden_states)
@@ -278,22 +279,15 @@ class BertSelfAttention(nn.Module):
         is_cross_attention = encoder_hidden_states is not None
 
         if self.is_latent:
-            if is_cross_attention and past_key_value is not None:
-                key_layer = self.k_up_proj(past_key_value[0])
-                value_layer = self.v_up_proj(past_key_value[1])
-                attention_mask = encoder_attention_mask
+            if past_key_value is not None:
+                compressed_key_layer = self.k_down_proj(hidden_states)
+                compressed_value_layer = self.v_down_proj(hidden_states)
+                past_key_value.append((compressed_key_layer, compressed_value_layer))
+                key_layer = torch.cat([self.k_up_proj(past_key_value[0]), key_layer], dim=2)
+                value_layer = torch.cat([self.v_up_proj(past_key_value[1]), value_layer], dim=2)
             else:
-                compressed_keys = self.k_down_proj(encoder_hidden_states)
-                compressed_values = self.v_down_proj(encoder_hidden_states)
-                uncompressed_keys = self.k_up_proj(compressed_keys)
-                uncompressed_values = self.v_up_proj(compressed_values)
-                if is_cross_attention:
-                    key_layer = self.transpose_for_scores(uncompressed_keys)
-                    value_layer = self.transpose_for_scores(uncompressed_values)
-                    attention_mask = encoder_attention_mask
-                elif past_key_value is not None:
-                    key_layer = self.transpose_for_scores(uncompressed_keys)
-                    value_layer = self.transpose_for_scores(uncompressed_values)
+                key_layer = self.transpose_for_scores(self.k_up_proj(self.k_down_proj(hidden_states)))
+                value_layer = self.transpose_for_scores(self.v_up_proj(self.v_down_proj(hidden_states)))
                     
         else:
             if is_cross_attention and past_key_value is not None:
@@ -395,7 +389,7 @@ class BertSdpaSelfAttention(BertSelfAttention):
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.FloatTensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        past_key_value: Optional[List[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
         if self.position_embedding_type != "absolute" or output_attentions or head_mask is not None:
@@ -498,14 +492,14 @@ class BertSelfOutput(nn.Module):
 
 BERT_SELF_ATTENTION_CLASSES = {
     "eager": BertSelfAttention,
-    "sdpa": BertSdpaSelfAttention,
 }
 
 
 class BertAttention(nn.Module):
     def __init__(self, config, position_embedding_type=None):
         super().__init__()
-        self.self = BERT_SELF_ATTENTION_CLASSES[config._attn_implementation](
+        attention_implementation = "eager"
+        self.self = BERT_SELF_ATTENTION_CLASSES[attention_implementation](
             config, position_embedding_type=position_embedding_type
         )
         self.output = BertSelfOutput(config)
@@ -536,7 +530,7 @@ class BertAttention(nn.Module):
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.FloatTensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        past_key_value: Optional[List[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
         self_outputs = self.self(
@@ -604,7 +598,7 @@ class BertLayer(nn.Module):
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.FloatTensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        past_key_value: Optional[List[Tuple[torch.FloatTensor]]] = None,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor]:
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2

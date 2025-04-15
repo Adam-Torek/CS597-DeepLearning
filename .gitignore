@@ -1,5 +1,8 @@
 data/*
+FinalProject/lightning_logs/*
+FinalProject/saved_models/*
+FinalProject/slurm_logs/*
 lightning_logs/*
-saved_models/*
+FinalProject/trained_models/*
 
 */__pycache__/*
