@@ -8,17 +8,16 @@ import lightning as pl
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
-from modeling_bert import BertForMaskedLM
-from modeling_electra import ElectraForMaskedLM
+from transformers import ElectraForMaskedLM, ElectraConfig
+from modeling_electra import ElectraMOEForMaskedLM
 
-from electra_config import ElectraMLAConfig
-from bert_config import BertMLAConfig
+from electra_config import ElectraMOEConfig
 
 import os
+import sys
 
 MODEL_TOKENIZERS = {
     "electra":"google/electra-base-discriminator",
-    "bert":"google-bert/bert-base-uncased",
 }
 
 class LightningWrapper(pl.LightningModule):
@@ -87,13 +86,6 @@ def main():
                     choices=["wikitext-103-v1","wikitext-2-v1"],
                     help="What subversion of wikitext you want your model trained of choice trained on.")
     
-    parser.add_argument("--model_name",
-                        type=str,
-                        required=True,
-                        choices=["electra","bert"],
-                        help="Which transformer-based encoder model to train using multi-head latent attention " \
-                              "on the WikiText dataset")
-    
     parser.add_argument("--model_save_name",
                         type=str,
                         required=True,
@@ -105,12 +97,23 @@ def main():
                         default="trained_models",
                         help="Name of the directory on disk to save model of your choice after training is complete.")
 
-    parser.add_argument("--latent_dimension",
-                    type=int,
-                    required=False,
-                    default=0,
-                    help="Size of the latent dimension the key and value attention matrices" \
-                    " will be projected down to in your model of choice.")
+    parser.add_argument("--num_experts",
+                       type=int,
+                       required=False,
+                       default=1,
+                       help="Number of experts used for each Electra MoE Layer")
+
+    parser.add_argument("--top_k",
+                        type=int,
+                        required="--num_experts" in sys.argv,
+                        default=2,
+                        help="Top K number of experts to select for each Electra MoE Layer")
+
+    parser.add_argument("--capacity_factor",
+                        type=float,
+                        required= "--num_experts" in sys.argv,
+                        default=1.0,
+                        help="Capacity factor that determines the maximum number of tokens an expert can procress in each Electra MoE Layer")
 
     parser.add_argument("--learning_rate",
                         type=float,
@@ -157,12 +160,10 @@ def main():
                         help="Strategy for splitting datasets and model parameters across different devices during training.")
 
     training_arguments = parser.parse_args()
-    model_name = training_arguments.model_name
+
     dataset_name = training_arguments.dataset_name
     dataset_subname = training_arguments.dataset_subname
     batch_size = training_arguments.batch_size
-
-    latent_size = training_arguments.latent_dimension if training_arguments.latent_dimension != 0 else None
 
     num_epochs = training_arguments.num_epochs
     max_training_steps = training_arguments.max_training_steps
@@ -176,6 +177,11 @@ def main():
     model_save_name = training_arguments.model_save_name
     model_save_directory = training_arguments.model_save_directory
 
+    num_experts = training_arguments.num_experts
+    top_k = training_arguments.top_k
+    capacity_factor = training_arguments.capacity_factor
+
+    model_name = "electra"
 
     wikitext_train = WikiTextDataSet(tokenizer=MODEL_TOKENIZERS[model_name], 
                                         wikitext_dataset_name=dataset_name, 
@@ -194,13 +200,12 @@ def main():
 
     transformer_encoder_model = None
 
-    
-    if model_name == "bert":
-        config = BertMLAConfig(latent_size=latent_size)
-        transformer_encoder_model = BertForMaskedLM(config)
-    elif model_name == "electra":
-        config = ElectraMLAConfig(latent_size=latent_size)
+    if num_experts == 1:
+        config = ElectraConfig()
         transformer_encoder_model = ElectraForMaskedLM(config)
+    else:
+        config = ElectraMOEConfig(num_experts=num_experts, top_k=top_k, capacity_factor=capacity_factor)
+        transformer_encoder_model = ElectraMOEForMaskedLM(config)
 
     transformer_encoder_lightning = LightningWrapper(transformer_encoder_model, learning_rate)
 

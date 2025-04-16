@@ -26,7 +26,7 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
-class ElectraMLAConfig(PretrainedConfig):
+class ElectraMOEConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`ElectraModel`] or a [`TFElectraModel`]. It is
     used to instantiate a ELECTRA model according to the specified arguments, defining the model architecture.
@@ -100,9 +100,13 @@ class ElectraMLAConfig(PretrainedConfig):
             relevant if `config.is_decoder=True`.
         classifier_dropout (`float`, *optional*):
             The dropout ratio for the classification head.
-        latent_size (`int`, *optional*):
-            Size of the latent projection that will be used for the key and value attention matrices. 
-            Note: Cross attention cannot be used if the latent size dimension is set. 
+        num_experts (`int`, *optional*, defaults to `4`)
+            Number of Experts to use in each Electra MoE Layer.
+        top_k (`int`, *optional*, defaults to `2`)
+            Top K number of experts to select for each Electra MoE Layer.
+        capacity_factor (`float`, *optional*, defaults to `1.0`)
+            Maximum number of tokens used for each expert in each MoE Layer. Used for
+            numerical stability during training.
 
     Examples:
 
@@ -144,7 +148,9 @@ class ElectraMLAConfig(PretrainedConfig):
         position_embedding_type="absolute",
         use_cache=True,
         classifier_dropout=None,
-        latent_size=None,
+        num_experts=4,
+        top_k=2,
+        capacity_factor=1.0,
         **kwargs,
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -170,7 +176,9 @@ class ElectraMLAConfig(PretrainedConfig):
         self.position_embedding_type = position_embedding_type
         self.use_cache = use_cache
         self.classifier_dropout = classifier_dropout
-        self.latent_size = latent_size
+        self.num_experts = num_experts
+        self.top_k = top_k
+        self.capacity_factor = capacity_factor
 
 
 class ElectraOnnxConfig(OnnxConfig):
