@@ -20,7 +20,7 @@ do
 	do
 		srun python3 wikitext_trainer.py --dataset_name Salesforce/wikitext \
                                  --dataset_subname wikitext-2-v1 \
-				 --model_save_name ajtorek/electra-num_experts-$expert_num-top_k-$k-capacity_factor-$capacity_factor \
+				                 --model_save_name ajtorek/electra-num_experts-$expert_num-top_k-$k-capacity_factor-$capacity_factor \
                                  --learning_rate 1e-4 \
                                  --batch_size 64 \
                                  --accelerator gpu \

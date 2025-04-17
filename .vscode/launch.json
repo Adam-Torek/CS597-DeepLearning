@@ -19,6 +19,22 @@
                      "--batch_size","32",
                      "--accelerator","cpu",
                     ]
+        },
+        {
+            "name": "Run GLUE Evaluations",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "FinalProject/run_glue.py",
+            "console": "integratedTerminal",
+            "args": ["--model_name_or_path","ajtorek/electra-num_experts-16-top_k-4-capacity_factor-1.0",
+                     "--tokenizer_name" , "google/electra-base-discriminator",
+                     "--ignore_mismatched_sizes","True",
+                     "--do_train","True",
+                     "--do_eval","True",
+                     "--output_dir","evaluation_results",
+                     "--overwrite_output_dir","True",
+                     "--task_name","cola",
+                    ]
         }
     ]
 }

@@ -6,3 +6,4 @@ lightning_logs/*
 FinalProject/trained_models/*
 
 */__pycache__/*
+evaluation_results/*
