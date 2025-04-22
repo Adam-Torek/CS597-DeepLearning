@@ -20,11 +20,12 @@ def main():
     directories = os.listdir(top_level_directory)
 
     model_configurations = []
+    possible_columns = set()
     
     if len(directories) == 1:
-        top_level_directory += directories[0]
+        top_level_directory = os.path.join(top_level_directory, directories[0])
     
-    for directory in top_level_directory:
+    for directory in os.listdir(top_level_directory):
         model_configurations.append(directory)
 
     glue_evaluation_results = {}
@@ -32,10 +33,18 @@ def main():
         glue_evaluation_results[configuration] = {}
         for task in glue_tasks:
             config_task_file_path = os.path.join(top_level_directory, configuration, task, "eval_results.json")
-            with json.load(config_task_file_path) as config_task_results:
-                glue_evaluation_results[configuration][task] = config_task_results
+            try:
+                with open(config_task_file_path, "r") as config_task_results:
+                    config_task_results_dict = json.load(config_task_results)
+                    for metric, value in config_task_results_dict.items():
+                        if "accuracy" in metric or "correlation" in metric:
+                            glue_evaluation_results[configuration][task] = value
+
+            except Exception as e:
+                print("unable to load results for {0}".format(config_task_file_path))
+                continue
             
-    glue_results_dataframe = pd.DataFrame.from_dict(glue_evaluation_results)
+    glue_results_dataframe = pd.DataFrame.from_dict(glue_evaluation_results, orient="index")
 
     glue_results_dataframe.to_csv(os.path.join(top_level_directory, "all_glue_results.csv"))
 

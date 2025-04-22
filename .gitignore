@@ -4,6 +4,6 @@ FinalProject/saved_models/*
 FinalProject/slurm_logs/*
 lightning_logs/*
 FinalProject/trained_models/*
+FinalProject/evaluation_results/*
 
 */__pycache__/*
-evaluation_results/*

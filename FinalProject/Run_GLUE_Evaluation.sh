@@ -10,8 +10,8 @@
 
 source activate $1
 
-num_experts=("2" "4" "8" "16")
-top_k=("1" "2" "3" "4")
+num_experts=("1" "2" "4" "8")
+top_k=("1" "2" "3")
 glue_tasks=("cola" "mnli" "mrpc" "mrpc" "qnli" "qqp" "rte" "sst2" "stsb" "wnli")
 capacity_factor=1.0
 
@@ -19,6 +19,10 @@ for expert_num in "${num_experts[@]}"
 do
 	for k in "${top_k[@]}"
 	do
+        if [$k != "1"] && [ $expert_num == "1" ]
+        then
+            continue
+        fi
         for task in "${glue_tasks[@]}"
         do
             model_name=ajtorek/electra-num_experts-$expert_num-top_k-$k-capacity_factor-$capacity_factor
@@ -30,7 +34,8 @@ do
                                 --output_dir evaluation_results/$model_name/$task \
                                 --tokenizer_name google/electra-base-discriminator \
                                 --ignore_mismatched_sizes True \
-                                --overwrite_output_dir True 
+                                --overwrite_output_dir True \
+                                --save_strategy no 
 
             echo "Completed task $task"
             rm -rf evaluation_results/checkpoint*
