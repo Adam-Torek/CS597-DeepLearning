@@ -11,16 +11,18 @@
 source activate $1
 
 num_experts=("1" "2" "4" "8")
-top_k=("1" "2" "3")
-glue_tasks=("cola" "mnli" "mrpc" "mrpc" "qnli" "qqp" "rte" "sst2" "stsb" "wnli")
+top_k=("1" "2")
+glue_tasks=("cola" "mnli" "mrpc" "qnli" "qqp" "rte" "sst2" "stsb" "wnli")
 capacity_factor=1.0
 
 for expert_num in "${num_experts[@]}"
 do
 	for k in "${top_k[@]}"
 	do
-        if [$k != "1"] && [ $expert_num == "1" ]
+        echo "Running evaluation for model with $expert_num experts and $k top choices"
+        if [$k != "1"] && [ $expert_num == "1" ];
         then
+            echo "Skipping evaluation for model with $expert_num experts and $k top choices"
             continue
         fi
         for task in "${glue_tasks[@]}"
@@ -37,8 +39,8 @@ do
                                 --overwrite_output_dir True \
                                 --save_strategy no 
 
-            echo "Completed task $task"
-            rm -rf evaluation_results/checkpoint*
+            echo "Completed task $task for model $model_name"
+            rm -rf evaluation_results/ajtorek/**/**/checkpoint*
         done
 	done
 done	
