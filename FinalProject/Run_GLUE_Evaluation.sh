@@ -10,7 +10,7 @@
 
 source activate $1
 
-num_experts=("1" "2" "4" "8")
+num_experts=("8")
 top_k=("1" "2")
 glue_tasks=("cola" "mnli" "mrpc" "qnli" "qqp" "rte" "sst2" "stsb" "wnli")
 capacity_factor=1.0
@@ -20,7 +20,7 @@ do
 	for k in "${top_k[@]}"
 	do
         echo "Running evaluation for model with $expert_num experts and $k top choices"
-        if [$k != "1"] && [ $expert_num == "1" ];
+        if [ $k != "1" ] && [ $expert_num == "1" ];
         then
             echo "Skipping evaluation for model with $expert_num experts and $k top choices"
             continue
@@ -29,7 +29,7 @@ do
         do
             model_name=ajtorek/electra-num_experts-$expert_num-top_k-$k-capacity_factor-$capacity_factor
             echo "Running task $task"
-            python3 run_glue.py --model_name_or_path $model_name \
+            srun python3 run_glue.py --model_name_or_path $model_name \
                                 --task_name $task \
                                 --do_train True \
                                 --do_eval True \
