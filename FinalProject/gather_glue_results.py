@@ -20,7 +20,6 @@ def main():
     directories = os.listdir(top_level_directory)
 
     model_configurations = []
-    possible_columns = set()
     
     if len(directories) == 1:
         top_level_directory = os.path.join(top_level_directory, directories[0])
